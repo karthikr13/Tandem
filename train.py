@@ -143,6 +143,7 @@ def train():
     plt.plot(range(num_epochs), forward_train_losses)
     plt.xlabel('Epochs')
     plt.ylabel('Train Error')
+    plt.yscale("log")
     plt.savefig("forward_loss_train.png")
 
     plt.figure(2)
@@ -150,6 +151,7 @@ def train():
     plt.plot(range(0, num_epochs, 20), forward_eval_losses)
     plt.xlabel('Epochs')
     plt.ylabel('Eval Error')
+    plt.yscale("log")
     plt.savefig("forward_loss_eval.png")
 
     plt.figure(3)
@@ -157,6 +159,7 @@ def train():
     plt.plot(range(num_epochs), backward_train_losses)
     plt.xlabel('Epochs')
     plt.ylabel('Train Error')
+    plt.yscale("log")
     plt.savefig("backward_loss_train.png")
 
     plt.figure(4)
@@ -164,6 +167,7 @@ def train():
     plt.plot(range(0, num_epochs, 20), backward_eval_losses)
     plt.xlabel('Epochs')
     plt.ylabel('Test Error')
+    plt.yscale("log")
     plt.savefig("backward_loss_eval.png")
 
 if __name__ == '__main__':
