@@ -144,19 +144,12 @@ def train():
     model_f.eval()
     inference_err = 0
     for i, (g, s) in enumerate(test_data):
-        print("g:")
-        g_np = g.detach().numpy()
-        print(g.size())
         g_out = model_b(s)
         g_out_np = g_out.detach().numpy()
-        print("g_out:")
-        print(g_out.size())
         s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
         s_out = np.sin(3 * np.pi * g_out_np[:,0]) + np.cos(3 * np.pi * g_out_np[:,1])
         s_out = torch.tensor(s_out, dtype=torch.float)
         s_out = torch.unsqueeze(s_out, 1)
-        print(s_out.size())
-        print(s.size())
         inference_err += loss(s_out, s)
 
     inference_err /= (i+1)
