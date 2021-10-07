@@ -42,6 +42,7 @@ def train():
 
     num_epochs = 500
     #num_epochs = 40
+    #num_epochs = 5
 
     model_f = Forward()
     model_b = Backward()
@@ -137,6 +138,32 @@ def train():
             backward_eval_losses.append(epoch_loss)
             print("Backwards train loss on epoch {}: {}".format(epoch, backward_train_losses[-1]))
             print("Backwards eval loss on epoch {}: {}".format(epoch, epoch_loss))
+
+    #evaluate
+    model_b.eval()
+    model_f.eval()
+    inference_err = 0
+    for i, (g, s) in enumerate(test_data):
+        print("g:")
+        g_np = g.detach().numpy()
+        print(g.size())
+        g_out = model_b(s)
+        g_out_np = g_out.detach().numpy()
+        print("g_out:")
+        print(g_out.size())
+        s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
+        s_out = np.sin(3 * np.pi * g_out_np[:,0]) + np.cos(3 * np.pi * g_out_np[:,1])
+        s_out = torch.tensor(s_out, dtype=torch.float)
+        s_out = torch.unsqueeze(s_out, 1)
+        print(s_out.size())
+        print(s.size())
+        inference_err += loss(s_out, s)
+
+    inference_err /= (i+1)
+
+    print("Inference error found to be {}".format(inference_err))
+
+
 
     plt.figure(1)
     plt.title("Forward training error {:0.4f}".format(min(forward_train_losses)))
