@@ -174,7 +174,7 @@ def train():
     print("Inference error found to be {}".format(inference_err_avg))
 
     plt.figure(1)
-    plt.hist(fwd_mses, bins = 100)
+    plt.hist(fwd_mses, bins = 100, range = (0, 0.5))
     plt.title("Error histogram using forward model")
     plt.xlabel("Error")
     plt.ylabel("Count")
@@ -182,12 +182,12 @@ def train():
     plt.savefig("histogram_forward.png")
 
     plt.figure(2)
-    plt.hist(sim_mses, bins=100)
-    plt.savefig("histogram_simulator.png")
+    plt.hist(sim_mses, bins=100, range = (0, 0.5))
     plt.xlabel("Error")
     plt.ylabel("Count")
     plt.xlim([0, 0.5])
     plt.title("Error histogram using simulator")
+    plt.savefig("histogram_simulator.png")
 
 
     plt.figure(3)
