@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torch.optim import lr_scheduler
+import math
 
 from tandem import Forward, Backward
 import data_reader
@@ -142,7 +143,18 @@ def train():
     #evaluate
     model_b.eval()
     model_f.eval()
-    inference_err = 0
+    inference_err = []
+    fwd_preds = []
+    sim_preds = []
+    true_s = []
+    fwd_mses = []
+    sim_mses = []
+    for i, (g, s) in enumerate(test_data):
+        g_out = model_b(s)
+        s_out = model_f(g_out)
+        fwd_preds += s_out.detach().numpy().tolist()
+        true_s += s.detach().numpy().tolist()
+
     for i, (g, s) in enumerate(test_data):
         g_out = model_b(s)
         g_out_np = g_out.detach().numpy()
@@ -150,15 +162,33 @@ def train():
         s_out = np.sin(3 * np.pi * g_out_np[:,0]) + np.cos(3 * np.pi * g_out_np[:,1])
         s_out = torch.tensor(s_out, dtype=torch.float)
         s_out = torch.unsqueeze(s_out, 1)
-        inference_err += loss(s_out, s)
+        sim_s = s_out.detach().numpy().tolist()
+        sim_preds += sim_s
+        inference_err.append(loss(s_out, s))
 
-    inference_err /= (i+1)
+    for k in range(len(true_s)):
+        fwd_mses.append(abs(fwd_preds[k][0] - true_s[k][0])**2)
+        sim_mses.append(abs(sim_preds[k][0] - true_s[k][0]) ** 2)
 
-    print("Inference error found to be {}".format(inference_err))
-
-
+    inference_err_avg = np.mean(inference_err)
+    print("Inference error found to be {}".format(inference_err_avg))
 
     plt.figure(1)
+    plt.hist(fwd_mses, bins = 100)
+    plt.title("Error histogram using forward model")
+    plt.xlabel("Error")
+    plt.ylabel("Count")
+    plt.savefig("histogram_forward.png")
+
+    plt.figure(2)
+    plt.hist(sim_mses, bins=100)
+    plt.savefig("histogram_simulator.png")
+    plt.xlabel("Error")
+    plt.ylabel("Count")
+    plt.title("Error histogram using simulator")
+
+
+    plt.figure(3)
     plt.title("Forward training error {:0.4f}".format(min(forward_train_losses)))
     plt.plot(range(num_epochs), forward_train_losses)
     plt.xlabel('Epochs')
@@ -166,7 +196,7 @@ def train():
     plt.yscale("log")
     plt.savefig("forward_loss_train.png")
 
-    plt.figure(2)
+    plt.figure(4)
     plt.title("Forward eval error {:0.4f}".format(min(forward_eval_losses)))
     plt.plot(range(0, num_epochs, 20), forward_eval_losses)
     plt.xlabel('Epochs')
@@ -174,7 +204,7 @@ def train():
     plt.yscale("log")
     plt.savefig("forward_loss_eval.png")
 
-    plt.figure(3)
+    plt.figure(5)
     plt.title("Backward training error {:0.4f}".format(min(backward_train_losses)))
     plt.plot(range(num_epochs), backward_train_losses)
     plt.xlabel('Epochs')
@@ -182,7 +212,7 @@ def train():
     plt.yscale("log")
     plt.savefig("backward_loss_train.png")
 
-    plt.figure(4)
+    plt.figure(6)
     plt.title("Backward eval error {:0.4f}".format(min(backward_eval_losses)))
     plt.plot(range(0, num_epochs, 20), backward_eval_losses)
     plt.xlabel('Epochs')
