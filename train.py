@@ -178,6 +178,7 @@ def train():
     plt.title("Error histogram using forward model")
     plt.xlabel("Error")
     plt.ylabel("Count")
+    plt.xlim([0,0.5])
     plt.savefig("histogram_forward.png")
 
     plt.figure(2)
@@ -185,6 +186,7 @@ def train():
     plt.savefig("histogram_simulator.png")
     plt.xlabel("Error")
     plt.ylabel("Count")
+    plt.xlim([0, 0.5])
     plt.title("Error histogram using simulator")
 
 
