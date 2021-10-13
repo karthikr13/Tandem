@@ -41,8 +41,8 @@ def loss(ys, labels, x = None):
 def train():
     train_data, test_data = data_reader.read_data_sine_wave()
 
-    #num_epochs = 500
-    num_epochs = 40
+    num_epochs = 500
+    #num_epochs = 40
     #num_epochs = 5
 
     model_f = Forward()
@@ -174,19 +174,19 @@ def train():
     print("Inference error found to be {}".format(inference_err_avg))
 
     plt.figure(1)
-    plt.hist(fwd_mses, bins = 100, range = (0, 0.5))
+    #plt.xscale('log')
     plt.title("Error histogram using forward model")
     plt.xlabel("Error")
     plt.ylabel("Count")
-    plt.xscale('log')
+    plt.hist(np.log(fwd_mses), bins=100)
     plt.savefig("histogram_forward.png")
 
     plt.figure(2)
-    plt.hist(sim_mses, bins=100, range = (0, 0.5))
+    #plt.xscale('log')
     plt.xlabel("Error")
     plt.ylabel("Count")
-    plt.xscale('log')
     plt.title("Error histogram using simulator")
+    plt.hist(np.log(sim_mses), bins=100)
     plt.savefig("histogram_simulator.png")
 
     plt.figure(3)
