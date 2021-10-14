@@ -170,9 +170,17 @@ def train():
         fwd_mses.append(abs(fwd_preds[k][0] - true_s[k][0])**2)
         sim_mses.append(abs(sim_preds[k][0] - true_s[k][0]) ** 2)
 
+    x = [np.log(fwd_mses), np.log(sim_mses)]
     inference_err_avg = np.mean(inference_err)
     print("Inference error found to be {}".format(inference_err_avg))
-
+    plt.figure(1)
+    plt.title("Error histogram")
+    plt.xlabel("Error (10$^x$)")
+    plt.ylabel("Count")
+    plt.hist(x, bins=100, label=['forward', 'simulator'])
+    plt.legend()
+    plt.savefig("histogram.png")
+    '''
     plt.figure(1)
     #plt.xscale('log')
     plt.title("Error histogram using forward model")
@@ -188,7 +196,7 @@ def train():
     plt.title("Error histogram using simulator")
     plt.hist(np.log(sim_mses), bins=100)
     plt.savefig("histogram_simulator.png")
-
+    '''
     plt.figure(3)
     plt.title("Forward training error {:0.4f}".format(min(forward_train_losses)))
     plt.plot(range(num_epochs), forward_train_losses)
