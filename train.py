@@ -156,6 +156,7 @@ def train():
         true_s += s.detach().numpy().tolist()
 
     for i, (g, s) in enumerate(test_data):
+        print(s.size())
         g_out = model_b(s)
         g_out_np = g_out.detach().numpy()
         s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
@@ -180,23 +181,15 @@ def train():
     plt.hist(x, bins=100, label=['forward', 'simulator'])
     plt.legend()
     plt.savefig("histogram.png")
-    '''
-    plt.figure(1)
-    #plt.xscale('log')
-    plt.title("Error histogram using forward model")
-    plt.xlabel("Error")
-    plt.ylabel("Count")
-    plt.hist(np.log(fwd_mses), bins=100)
-    plt.savefig("histogram_forward.png")
+
+    test_s = np.linspace(-1, 1, 500)
+    test_g = model_b(torch.tensor(test_s, dtype=torch.float).unsqueeze(1)).detach().numpy()
 
     plt.figure(2)
-    #plt.xscale('log')
-    plt.xlabel("Error")
-    plt.ylabel("Count")
-    plt.title("Error histogram using simulator")
-    plt.hist(np.log(sim_mses), bins=100)
-    plt.savefig("histogram_simulator.png")
-    '''
+    plt.title("Visualization of output geometries")
+    plt.plot(test_g[:, 0], test_g[:, 1])
+    plt.savefig("geometry_visualization.png")
+
     plt.figure(3)
     plt.title("Forward training error {:0.4f}".format(min(forward_train_losses)))
     plt.plot(range(num_epochs), forward_train_losses)
