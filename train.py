@@ -34,7 +34,7 @@ def loss(ys, labels, x = None, prev = None):
     bdy = 0
     prev_loss = 0
     sigma = 0.5
-    l = 0.02
+    l = 0.1
     if x is not None:
         bdy = boundary_loss(x)
     if prev is not None:
@@ -218,7 +218,6 @@ def train():
         true_s += s.detach().numpy().tolist()
 
     for i, (g, s) in enumerate(test_data):
-        print(s.size())
         g_out = model_b(s)
         g_out_np = g_out.detach().numpy()
 
@@ -240,11 +239,15 @@ def train():
         inference_err.append(loss(s_out, s))
         inference_err2.append(loss(s_out2, s))
 
+    model1_fwd_mses, model1_sim_mses = [],[]
+    model2_fwd_mses, model2_sim_mses = [], []
     for k in range(len(true_s)):
         f_p = [fwd_preds[k][0], fwd_preds2[k][0]]
         fwd_model_err = abs(fwd_preds[k][0] - true_s[k][0]) ** 2
         fwd_model_err2 = abs(fwd_preds2[k][0] - true_s[k][0]) ** 2
         best_fwd_err = min(fwd_model_err, fwd_model_err2)
+        model1_fwd_mses.append(fwd_model_err)
+        model2_fwd_mses.append(fwd_model_err2)
         fwd_mses.append(best_fwd_err)
         fwd_best_preds.append(f_p[np.argmin([fwd_model_err, fwd_model_err2])])
 
@@ -252,6 +255,8 @@ def train():
         sim_model_err = abs(sim_preds[k][0] - true_s[k][0]) ** 2
         sim_model_err2 = abs(sim_preds2[k][0] - true_s[k][0]) ** 2
         best_sim_err = min(sim_model_err, sim_model_err2)
+        model1_sim_mses.append(sim_model_err)
+        model2_sim_mses.append(sim_model_err2)
         sim_mses.append(best_sim_err)
         sim_best_preds.append(s_p[np.argmin([sim_model_err, sim_model_err2])])
         sim_mses.append(best_sim_err)
@@ -260,6 +265,8 @@ def train():
     results = open("results.txt", "w")
 
     x = [np.log(fwd_mses), np.log(sim_mses)]
+    x1 = [np.log(model1_fwd_mses), np.log(model1_sim_mses)]
+    x2 = [np.log(model2_fwd_mses), np.log(model2_sim_mses)]
     inference_err_avg = np.mean(inference_err)
 
     print("Inference error of inverse model 1 found to be {}".format(inference_err_avg))
@@ -272,19 +279,35 @@ def train():
 
     #histogram
     plt.figure(1)
-    plt.title("Error histogram")
+    plt.title("Error histogram for best model")
     plt.xlabel("Error (10$^x$)")
     plt.ylabel("Count")
     plt.hist(x, bins=100, label=['forward', 'simulator'])
     plt.legend()
-    plt.savefig("histogram.png")
+    plt.savefig("histogram_best_model.png")
+
+    plt.figure(2)
+    plt.title("Error histogram for inverse model 1")
+    plt.xlabel("Error (10$^x$)")
+    plt.ylabel("Count")
+    plt.hist(x1, bins=100, label=['forward', 'simulator'])
+    plt.legend()
+    plt.savefig("histogram_model1.png")
+
+    plt.figure(3)
+    plt.title("Error histogram for inverse model 2")
+    plt.xlabel("Error (10$^x$)")
+    plt.ylabel("Count")
+    plt.hist(x2, bins=100, label=['forward', 'simulator'])
+    plt.legend()
+    plt.savefig("histogram_model2.png")
 
     #geometry visualization
     test_s = np.linspace(-1, 1, 500)
     test_g = model_b(torch.tensor(test_s, dtype=torch.float).unsqueeze(1)).detach().numpy()
     test_g2 = model_b2(torch.tensor(test_s, dtype=torch.float).unsqueeze(1)).detach().numpy()
 
-    plt.figure(2)
+    plt.figure(4)
     plt.title("Visualization of output geometries")
     plt.plot(test_g[:, 0], test_g[:, 1], label='Inverse Model 1')
     plt.plot(test_g2[:, 0], test_g2[:, 1], label='Inverse Model 2')
@@ -292,7 +315,7 @@ def train():
     plt.savefig("geometry_visualization.png")
 
     #training graphs
-    plt.figure(3)
+    plt.figure(5)
     plt.title("Forward training error")
     results.write("Forward training error {:0.4f}\n".format(min(forward_train_losses)))
     plt.plot(range(num_epochs), forward_train_losses)
@@ -301,7 +324,7 @@ def train():
     plt.yscale("log")
     plt.savefig("forward_loss_train.png")
 
-    plt.figure(4)
+    plt.figure(6)
     plt.title("Forward eval error")
     results.write("Forward eval error {:0.4f}\n".format(min(forward_eval_losses)))
     plt.plot(range(0, num_epochs, 20), forward_eval_losses)
@@ -310,23 +333,25 @@ def train():
     plt.yscale("log")
     plt.savefig("forward_loss_eval.png")
 
-    plt.figure(5)
+    plt.figure(7)
     plt.title("Backward training error")
     results.write("Backward model 1 training error {:0.4f}\n".format(min(backward_train_losses)))
     results.write("Backward model 2 training error {:0.4f}\n".format(min(backward_train_losses2)))
     plt.plot(range(num_epochs), backward_train_losses, label = 'Inverse Model 1')
     plt.plot(range(num_epochs), backward_train_losses2, label='Inverse Model 2')
+    plt.legend()
     plt.xlabel('Epochs')
     plt.ylabel('Train Error')
     plt.yscale("log")
     plt.savefig("backward_loss_train.png")
 
-    plt.figure(6)
+    plt.figure(8)
     plt.title("Backward eval error")
     results.write("Backward model 1 eval error {:0.4f}\n".format(min(backward_eval_losses)))
     results.write("Backward model 2 eval error {:0.4f}\n".format(min(backward_eval_losses2)))
     plt.plot(range(0, num_epochs, 20), backward_eval_losses, label = 'Inverse Model 1')
     plt.plot(range(0, num_epochs, 20), backward_eval_losses2, label='Inverse Model 2')
+    plt.legend()
     plt.xlabel('Epochs')
     plt.ylabel('Test Error')
     plt.yscale("log")

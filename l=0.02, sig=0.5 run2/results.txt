@@ -1,0 +1,9 @@
+Inference error of inverse model 1 found to be 0.037035878747701645
+Inference error of inverse model 2 found to be 0.08623091876506805
+Inference error of overall model found to be 0.014257885006480358
+Forward training error 0.0076
+Forward eval error 0.0021
+Backward model 1 training error 0.0321
+Backward model 2 training error 0.0187
+Backward model 1 eval error 0.0364
+Backward model 2 eval error 0.0225
