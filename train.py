@@ -21,14 +21,18 @@ def boundary_loss(x):
     :param x: predicted input tensor
     :return: boundary loss
     """
-
     mean = np.array([0, 0])
     range = np.array([2, 2])
-
-    input_diff = torch.abs(x - torch.tensor(mean, dtype=torch.float))
-    mean_diff = input_diff - 0.5*torch.tensor(range, dtype = torch.float)
+    if torch.cuda.is_available():
+        input_diff = torch.abs(x - torch.tensor(mean, dtype=torch.float, device='cuda'))
+        mean_diff = input_diff - 0.5*torch.tensor(range, dtype = torch.float, device='cuda')
+    else:
+        input_diff = torch.abs(x - torch.tensor(mean, dtype=torch.float))
+        mean_diff = input_diff - 0.5 * torch.tensor(range, dtype=torch.float)
     relu = nn.ReLU()
     total_loss = relu(mean_diff)
+    if torch.cuda.is_available():
+        total_loss = total_loss.cuda()
     return torch.mean(total_loss)
 
 def loss(ys, labels, x = None, prev = None, sigma = 0, l = 0):
@@ -42,26 +46,28 @@ def loss(ys, labels, x = None, prev = None, sigma = 0, l = 0):
 
     return bdy + mse - prev_loss
 
-def train(dir):
+def train(dir, sigma, lam):
     train_data, test_data = data_reader.read_data_sine_wave()
 
     num_epochs = 500
     #num_epochs = 40
     #num_epochs = 5
-    sigma = 0.5
-    lam = 0.1
+
 
     model_f = Forward()
     model_b = Backward()
     model_b2 = Backward()
-    opt_f = torch.optim.Adam(model_f.parameters(), lr=0.001, weight_decay=0.0005)
-    opt_b = torch.optim.Adam(model_b.parameters(), lr=0.001)
-    opt_b2 = torch.optim.Adam(model_b2.parameters(), lr=0.001)
+
 
     cuda = True if torch.cuda.is_available() else False
     if cuda:
         model_f.cuda()
         model_b.cuda()
+        model_b2.cuda()
+
+    opt_f = torch.optim.Adam(model_f.parameters(), lr=0.001, weight_decay=0.0005)
+    opt_b = torch.optim.Adam(model_b.parameters(), lr=0.001)
+    opt_b2 = torch.optim.Adam(model_b2.parameters(), lr=0.001)
 
     #Forward
     lr_sched = lr_scheduler.ReduceLROnPlateau(optimizer=opt_f, mode='min',
@@ -74,15 +80,15 @@ def train(dir):
         epoch_losses = []
         for i, (g, s) in enumerate(train_data):
             if cuda:
-                g.cuda()
-                s.cuda()
+                g = g.cuda()
+                s = s.cuda()
 
             opt_f.zero_grad()
             out = model_f(g)
             l = loss(out, s, x = None)
             l.backward()
             opt_f.step()
-            epoch_losses.append(l.detach().numpy())
+            epoch_losses.append(l.cpu().detach().numpy())
         epoch_loss = np.mean(epoch_losses)
         forward_train_losses.append(epoch_loss)
         lr_sched.step(epoch_loss)
@@ -93,12 +99,12 @@ def train(dir):
             eval_epoch_losses = []
             for i, (g, s) in enumerate(test_data):
                 if cuda:
-                    g.cuda()
-                    s.cuda()
+                    g = g.cuda()
+                    s = s.cuda()
 
                 out = model_f(g)
                 l = loss(out, s)
-                eval_epoch_losses.append(l.detach().numpy())
+                eval_epoch_losses.append(l.cpu().detach().numpy())
             epoch_loss = np.mean(eval_epoch_losses)
             forward_eval_losses.append(epoch_loss)
             print("Forward train loss on epoch {}: {}".format(epoch, forward_train_losses[-1]))
@@ -117,8 +123,8 @@ def train(dir):
         epoch_losses = []
         for i, (g, s) in enumerate(train_data):
             if cuda:
-                g.cuda()
-                s.cuda()
+                g = g.cuda()
+                s = s.cuda()
 
             opt_b.zero_grad()
             g_out = model_b(s)
@@ -126,7 +132,7 @@ def train(dir):
             l = loss(s_out, s, x=g_out)
             l.backward()
             opt_b.step()
-            epoch_losses.append(l.detach().numpy())
+            epoch_losses.append(l.cpu().detach().numpy())
         epoch_loss = np.mean(epoch_losses)
         backward_train_losses.append(epoch_loss)
         lr_sched.step(epoch_loss)
@@ -136,13 +142,13 @@ def train(dir):
             eval_epoch_losses = []
             for i, (g, s) in enumerate(test_data):
                 if cuda:
-                    g.cuda()
-                    s.cuda()
+                    g = g.cuda()
+                    s = s.cuda()
 
                 g_out = model_b(s)
                 s_out = model_f(g_out)
                 l = loss(s_out, s, x = g_out)
-                eval_epoch_losses.append(l.detach().numpy())
+                eval_epoch_losses.append(l.cpu().detach().numpy())
             epoch_loss = np.mean(eval_epoch_losses)
             backward_eval_losses.append(epoch_loss)
             print("Backwards train loss on epoch {}: {}".format(epoch, backward_train_losses[-1]))
@@ -165,8 +171,8 @@ def train(dir):
         epoch_losses_mses = []
         for i, (g, s) in enumerate(train_data):
             if cuda:
-                g.cuda()
-                s.cuda()
+                g = g.cuda()
+                s = s.cuda()
 
             opt_b2.zero_grad()
             g_out = model_b2(s)
@@ -175,8 +181,8 @@ def train(dir):
             l2 = loss(s_out, s, x=g_out)
             l.backward()
             opt_b2.step()
-            epoch_losses.append(l.detach().numpy())
-            epoch_losses_mses.append(l2.detach().numpy())
+            epoch_losses.append(l.cpu().detach().numpy())
+            epoch_losses_mses.append(l2.cpu().detach().numpy())
         epoch_loss = np.mean(epoch_losses)
         epoch_loss_mse = np.mean(epoch_losses_mses)
         backward_train_losses2.append(epoch_loss)
@@ -189,15 +195,15 @@ def train(dir):
             eval_epoch_losses_mse = []
             for i, (g, s) in enumerate(test_data):
                 if cuda:
-                    g.cuda()
-                    s.cuda()
+                    g = g.cuda()
+                    s = s.cuda()
 
                 g_out = model_b2(s)
                 s_out = model_f(g_out)
                 l = loss(s_out, s, x=g_out, prev=model_b(s), sigma=sigma, l=lam)
                 l2 = loss(s_out, s, x=g_out)
-                eval_epoch_losses.append(l.detach().numpy())
-                eval_epoch_losses_mse.append(l2.detach().numpy())
+                eval_epoch_losses.append(l.cpu().detach().numpy())
+                eval_epoch_losses_mse.append(l2.cpu().detach().numpy())
             epoch_loss = np.mean(eval_epoch_losses)
             epoch_loss_mse = np.mean(eval_epoch_losses_mse)
             backward_eval_losses2.append(epoch_loss)
@@ -221,35 +227,44 @@ def train(dir):
     sim_mses = []
     fwd_best_preds, sim_best_preds = [],[]
     for i, (g, s) in enumerate(test_data):
+        if torch.cuda.is_available():
+            g = g.cuda()
+            s = s.cuda()
         g_out = model_b(s)
         g_out2 = model_b2(s)
         s_out = model_f(g_out)
         s_out2 = model_f(g_out2)
-        fwd_preds += s_out.detach().numpy().tolist()
-        fwd_preds2 += s_out2.detach().numpy().tolist()
-        true_s += s.detach().numpy().tolist()
+        fwd_preds += s_out.cpu().detach().numpy().tolist()
+        fwd_preds2 += s_out2.cpu().detach().numpy().tolist()
+        true_s += s.cpu().detach().numpy().tolist()
 
     for i, (g, s) in enumerate(test_data):
+        if torch.cuda.is_available():
+            g = g.cuda()
+            s = s.cuda()
         g_out = model_b(s)
-        g_out_np = g_out.detach().numpy()
+        g_out_np = g_out.cpu().detach().numpy()
 
         s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
         s_out = np.sin(3 * np.pi * g_out_np[:,0]) + np.cos(3 * np.pi * g_out_np[:,1])
+
         s_out = torch.tensor(s_out, dtype=torch.float)
         s_out = torch.unsqueeze(s_out, 1)
 
         g_out2 = model_b2(s)
-        g_out_np2 = g_out2.detach().numpy()
+        g_out_np2 = g_out2.cpu().detach().numpy()
         s_out2 = np.zeros(np.array([np.shape(g_out2)[0], 1]))
         s_out2 = np.sin(3 * np.pi * g_out_np2[:, 0]) + np.cos(3 * np.pi * g_out_np2[:, 1])
         s_out2 = torch.tensor(s_out2, dtype=torch.float)
         s_out2 = torch.unsqueeze(s_out2, 1)
 
-        sim_preds += s_out.detach().numpy().tolist()
-        sim_preds2 += s_out2.detach().numpy().tolist()
-
-        inference_err.append(loss(s_out, s))
-        inference_err2.append(loss(s_out2, s))
+        sim_preds += s_out.cpu().detach().numpy().tolist()
+        sim_preds2 += s_out2.cpu().detach().numpy().tolist()
+        if torch.cuda.is_available():
+            s_out = s_out.cuda()
+            s_out2 = s_out2.cuda()
+        inference_err.append(loss(s_out, s).cpu().detach().numpy())
+        inference_err2.append(loss(s_out2, s).cpu().detach().numpy())
 
     model1_fwd_mses, model1_sim_mses = [],[]
     model2_fwd_mses, model2_sim_mses = [], []
@@ -279,10 +294,14 @@ def train(dir):
     results.write("Sigma: {}\n".format(sigma))
     results.write("Sigma squared: {}\n".format(sigma ** 2))
     results.write("Lambda: {}\n".format(lam))
-    x = [np.log(fwd_mses), np.log(sim_mses)]
-    x1 = [np.log(model1_fwd_mses), np.log(model1_sim_mses)]
-    x2 = [np.log(model2_fwd_mses), np.log(model2_sim_mses)]
+
+    x = [np.log(fwd_mses, where=np.array(fwd_mses) > 0), np.log(sim_mses, where=np.array(sim_mses) > 0)]
+    x1 = [np.log(model1_fwd_mses, where=np.array(model1_fwd_mses) > 0),
+          np.log(model1_sim_mses, where=np.array(model1_sim_mses) > 0)]
+    x2 = [np.log(model2_fwd_mses, where=np.array(model2_fwd_mses) > 0),
+          np.log(model2_sim_mses, where=np.array(model2_sim_mses) > 0)]
     inference_err_avg = np.mean(inference_err)
+
 
     print("Inference error of inverse model 1 found to be {}".format(inference_err_avg))
     print("Inference error of inverse model 2 found to be {}".format(np.mean(inference_err2)))
@@ -294,6 +313,7 @@ def train(dir):
 
     #histogram
     plt.figure(1)
+    plt.clf()
     plt.title("Error histogram for best model")
     plt.xlabel("Error (10$^x$)")
     plt.ylabel("Count")
@@ -302,6 +322,7 @@ def train(dir):
     plt.savefig("{}/histogram_best_model.png".format(dir))
 
     plt.figure(2)
+    plt.clf()
     plt.title("Error histogram for inverse model 1")
     plt.xlabel("Error (10$^x$)")
     plt.ylabel("Count")
@@ -310,6 +331,7 @@ def train(dir):
     plt.savefig("{}/histogram_model1.png".format(dir))
 
     plt.figure(3)
+    plt.clf()
     plt.title("Error histogram for inverse model 2")
     plt.xlabel("Error (10$^x$)")
     plt.ylabel("Count")
@@ -319,8 +341,11 @@ def train(dir):
 
     #geometry visualization
     test_s = np.linspace(-1, 1, 100)
-    test_g = model_b(torch.tensor(test_s, dtype=torch.float).unsqueeze(1)).detach().numpy()
-    test_g2 = model_b2(torch.tensor(test_s, dtype=torch.float).unsqueeze(1)).detach().numpy()
+    s_in = torch.tensor(test_s, dtype=torch.float).unsqueeze(1)
+    if torch.cuda.is_available():
+        s_in = s_in.cuda()
+    test_g = model_b(s_in).cpu().detach().numpy()
+    test_g2 = model_b2(s_in).cpu().detach().numpy()
 
     true_s = np.sin(3 * np.pi * test_g[:, 0]) + np.cos(3 * np.pi * test_g[:, 1])
     true_s2 = np.sin(3 * np.pi * test_g2[:, 0]) + np.cos(3 * np.pi * test_g2[:, 1])
@@ -329,6 +354,7 @@ def train(dir):
     test_err2 = (true_s2 - test_s) ** 2
 
     plt.figure(4)
+    plt.clf()
     plt.title("Visualization of output geometries")
     plt.scatter(test_g[:, 0], test_g[:, 1], s=10, label='Inverse Model 1')
     plt.scatter(test_g2[:, 0], test_g2[:, 1], s=10, label='Inverse Model 2')
@@ -336,19 +362,22 @@ def train(dir):
     plt.savefig("{}/geometry_visualization.png".format(dir))
 
     plt.figure(5)
+    plt.clf()
     plt.title("Visualization of inverse model 1 output geometries")
-    plt.scatter(test_g[:, 0], test_g[:, 1], c=test_err, cmap='plasma')
+    plt.scatter(test_g[:, 0], test_g[:, 1], s=10, c=test_err, cmap='plasma')
     plt.colorbar(label='MSE', orientation='horizontal')
     plt.savefig("{}/geometry_visualization_model1_mse".format(dir))
 
     plt.figure(6)
+    plt.clf()
     plt.title("Visualization of inverse model 2 output geometries")
-    plt.scatter(test_g2[:, 0], test_g2[:, 1], c=test_err2, cmap='plasma')
+    plt.scatter(test_g2[:, 0], test_g2[:, 1], s=10, c=test_err2, cmap='plasma')
     plt.colorbar(label='MSE', orientation='horizontal')
     plt.savefig("{}/geometry_visualization_model2_mse".format(dir))
 
     #training graphs
     plt.figure(7)
+    plt.clf()
     plt.title("Forward training error")
     results.write("Forward training error {:0.4f}\n".format(min(forward_train_losses)))
     plt.plot(range(num_epochs), forward_train_losses)
@@ -358,6 +387,7 @@ def train(dir):
     plt.savefig("{}/forward_loss_train.png".format(dir))
 
     plt.figure(8)
+    plt.clf()
     plt.title("Forward eval error")
     results.write("Forward eval error {:0.4f}\n".format(min(forward_eval_losses)))
     plt.plot(range(0, num_epochs, 20), forward_eval_losses)
@@ -367,6 +397,7 @@ def train(dir):
     plt.savefig("{}/forward_loss_eval.png".format(dir))
 
     plt.figure(9)
+    plt.clf()
     plt.title("Backward training error")
     results.write("Backward model 1 training error {:0.4f}\n".format(min(backward_train_losses)))
     results.write("Backward model 2 training error {:0.4f}\n".format(min(backward_train_losses2)))
@@ -381,6 +412,7 @@ def train(dir):
     plt.savefig("{}/backward_loss_train.png".format(dir))
 
     plt.figure(10)
+    plt.clf()
     plt.title("Backward eval error")
     results.write("Backward model 1 eval error {:0.4f}\n".format(min(backward_eval_losses)))
     results.write("Backward model 2 eval error {:0.4f}\n".format(min(backward_eval_losses2)))
@@ -397,9 +429,22 @@ def train(dir):
 
     results.close()
 if __name__ == '__main__':
-    print("Beginning training")
-    x = datetime.now()
-    dir = "{:04d}-{:02d}-{:02d}_{:02d}-{:02d}".format(x.year, x.month, x.day, x.hour, x.minute)
-    os.mkdir(dir)
-    train(dir)
-    print("Done training")
+    sigmas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    lams = [0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14]
+
+    for i in range(-1, len(lams)):
+        if i == -1:
+            print("Beginning training round -1")
+            dir = "l=0"
+            os.mkdir(dir)
+            train(dir, 1, 0)
+            print("Done training")
+        else:
+            for j in range(len(sigmas)):
+                print("Beginning training round {}".format(i*len(sigmas)+j))
+                #x = datetime.now()
+                #dir = "{:04d}-{:02d}-{:02d}_{:02d}-{:02d}".format(x.year, x.month, x.day, x.hour, x.minute)
+                dir = "l={}, s={}".format(lams[i], sigmas[j])
+                os.mkdir(dir)
+                train(dir, sigmas[j], lams[i])
+                print("Done training")

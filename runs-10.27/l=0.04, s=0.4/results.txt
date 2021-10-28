@@ -1,0 +1,15 @@
+Number of epochs: 500
+Sigma: 0.4
+Sigma squared: 0.16000000000000003
+Lambda: 0.04
+Inference error of inverse model 1 found to be 0.02548641711473465
+Inference error of inverse model 2 found to be 0.0438007190823555
+Inference error of overall model found to be 0.008716371832404523
+Forward training error 0.0072
+Forward eval error 0.0021
+Backward model 1 training error 0.0314
+Backward model 2 training error 0.0114
+Backward model 2 training error without repulsion term 0.0429
+Backward model 1 eval error 0.0289
+Backward model 2 eval error 0.0132
+Backward model 2 eval error without repulsion term 0.0442
