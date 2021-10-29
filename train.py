@@ -363,12 +363,21 @@ def train(dir, sigma, lam):
 
     plt.figure(5)
     plt.clf()
+    plt.title("Visualization of output geometries with predictions")
+    plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=test_s, marker = 'o', label='Inverse Model 1')
+    plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=test_s, marker = 'x', label='Inverse Model 2')
+    plt.colorbar(label='Spectra Predictions', orientation='horizontal')
+    plt.legend()
+    plt.savefig("{}/geometry_visualization_ys.png".format(dir))
+
+    plt.figure(6)
+    plt.clf()
     plt.title("Visualization of inverse model 1 output geometries")
     plt.scatter(test_g[:, 0], test_g[:, 1], s=10, c=test_err, cmap='plasma')
     plt.colorbar(label='MSE', orientation='horizontal')
     plt.savefig("{}/geometry_visualization_model1_mse".format(dir))
 
-    plt.figure(6)
+    plt.figure(7)
     plt.clf()
     plt.title("Visualization of inverse model 2 output geometries")
     plt.scatter(test_g2[:, 0], test_g2[:, 1], s=10, c=test_err2, cmap='plasma')
@@ -376,7 +385,7 @@ def train(dir, sigma, lam):
     plt.savefig("{}/geometry_visualization_model2_mse".format(dir))
 
     #training graphs
-    plt.figure(7)
+    plt.figure(8)
     plt.clf()
     plt.title("Forward training error")
     results.write("Forward training error {:0.4f}\n".format(min(forward_train_losses)))
@@ -386,7 +395,7 @@ def train(dir, sigma, lam):
     plt.yscale("log")
     plt.savefig("{}/forward_loss_train.png".format(dir))
 
-    plt.figure(8)
+    plt.figure(9)
     plt.clf()
     plt.title("Forward eval error")
     results.write("Forward eval error {:0.4f}\n".format(min(forward_eval_losses)))
@@ -396,7 +405,7 @@ def train(dir, sigma, lam):
     plt.yscale("log")
     plt.savefig("{}/forward_loss_eval.png".format(dir))
 
-    plt.figure(9)
+    plt.figure(10)
     plt.clf()
     plt.title("Backward training error")
     results.write("Backward model 1 training error {:0.4f}\n".format(min(backward_train_losses)))
@@ -411,7 +420,7 @@ def train(dir, sigma, lam):
     plt.yscale("log")
     plt.savefig("{}/backward_loss_train.png".format(dir))
 
-    plt.figure(10)
+    plt.figure(11)
     plt.clf()
     plt.title("Backward eval error")
     results.write("Backward model 1 eval error {:0.4f}\n".format(min(backward_eval_losses)))
@@ -429,6 +438,7 @@ def train(dir, sigma, lam):
 
     results.close()
 if __name__ == '__main__':
+    '''
     sigmas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     lams = [0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14]
 
@@ -448,3 +458,6 @@ if __name__ == '__main__':
                 os.mkdir(dir)
                 train(dir, sigmas[j], lams[i])
                 print("Done training")
+    '''
+    os.mkdir("test")
+    train("test", 0.2, 0.02)
