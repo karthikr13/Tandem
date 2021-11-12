@@ -1,0 +1,7 @@
+Number of epochs: 500
+Sigma: 0.02
+Sigma squared: 0.0004
+Lambda: 0.02
+Inference error of inverse model 1 found to be 0.0268904659897089
+Inference error of inverse model 2 found to be 0.026213621720671654
+Inference error of overall model found to be 0.006577008026259219
