@@ -36,7 +36,7 @@ def boundary_loss(x):
         total_loss = total_loss.cuda()
     return torch.mean(total_loss)
 
-def loss(ys, labels, x = None, prev = None, sigma = 0, l = 0):
+def loss(ys, labels, x = None, prev = None, sigma = 1, l = 0):
     bdy = 0
     prev_loss = 0
     if x is not None:
@@ -155,7 +155,7 @@ def train(dir, sigma, lam):
 
                 g_out = model_b(s)
                 s_out = model_f(g_out)
-                l = loss(s_out, s, x = g_out)
+                l = loss(s_out, s, x=g_out)
                 eval_epoch_loss = l.cpu().detach().numpy()
                 eval_epoch_losses.append(eval_epoch_loss)
             epoch_loss = np.mean(eval_epoch_losses)
@@ -684,8 +684,8 @@ def inference(model_f, model_b, model_b2, dir):
         plt.figure(4)
         plt.clf()
         plt.title("Visualization of output geometries with {} points".format(num))
-        plt.scatter(np.ma.log(test_g[:, 0]).filled(0), np.ma.log(test_g[:, 1]).filled(0), s=10, label='Inverse Model 1')
-        plt.scatter(np.ma.log(test_g2[:, 0]).filled(0), np.ma.log(test_g2[:, 1]).filled(0), s=10, label='Inverse Model 2')
+        plt.scatter(test_g[:, 0], test_g[:, 1], s=10, label='Inverse Model 1')
+        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=10, label='Inverse Model 2')
         plt.legend()
         plt.savefig("{}/geometry_visualization_{}.png".format(dir, num))
 
@@ -695,91 +695,101 @@ def inference(model_f, model_b, model_b2, dir):
         plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=test_s, marker='o', label='Inverse Model 1')
         plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=test_s, marker='x', label='Inverse Model 2')
         plt.colorbar(label='Spectra Predictions', orientation='horizontal')
-        plt.clim(-20, 0)
+        #plt.clim(-20, 0)
         plt.legend()
         plt.savefig("{}/geometry_visualization_ys_{}.png".format(dir, num))
 
         plt.figure(6)
-
         plt.clf()
-        plt.title("Visualization of inverse model 1 output geometries")
-        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'), extent=(
+        ax=plt.gca()
+
+        plt.title("Visualization of inverse model 1 output geometries with simulator error")
+        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'), aspect='auto', extent=(
         min(min(test_g[:, 0]), min(test_g2[:, 0])), max(max(test_g[:, 0]), max(test_g2[:, 0])),
         min(min(test_g[:, 1]), min(test_g2[:, 1])), max(max(test_g[:, 1]), max(test_g2[:, 1]))))
-        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.log(test_err), cmap='plasma')
+
+        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.sqrt(test_err), cmap='plasma')
         plt.plot(test_g[:, 0], test_g[:, 1])
-        plt.colorbar(label='log MSE', orientation='horizontal')
-        plt.clim(-20, 0)
+        plt.colorbar(label='Sqrt Error by Simulator', orientation='horizontal')
+        #plt.clim(-20, 0)
+        plt.clim(0, 1.4)
         plt.savefig("{}/geometry_visualization_model1_mse_{}".format(dir, num))
 
         plt.figure(7)
         plt.clf()
-        plt.title("Visualization of inverse model 2 output geometries")
-        plt.imshow(mesh_out2, cmap=plt.cm.get_cmap('gray'),
+        plt.title("Visualization of inverse model 2 output geometries with simulator error")
+        plt.imshow(mesh_out2, cmap=plt.cm.get_cmap('gray'), aspect='auto',
                    extent=(min(min(test_g[:, 0]), min(test_g2[:, 0])), max(max(test_g[:, 0]), max(test_g2[:, 0])),
                            min(min(test_g[:, 1]), min(test_g2[:, 1])), max(max(test_g[:, 1]), max(test_g2[:, 1]))))
-        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.log(test_err2), cmap='plasma')
+        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.sqrt(test_err2), cmap='plasma')
         plt.plot(test_g2[:, 0], test_g2[:, 1])
-        plt.colorbar(label='log MSE', orientation='horizontal')
-        plt.clim(-20, 0)
+        plt.colorbar(label='Sqrt Error by Simulator', orientation='horizontal')
+        #plt.clim(-20, 0)
+        plt.clim(0, 1.4)
         plt.savefig("{}/geometry_visualization_model2_mse_{}".format(dir, num))
         print("Saved to {}/geometry_visualization_model2_mse_{}".format(dir, num))
 
         plt.figure(12)
         plt.clf()
-        plt.title("Visualization of both inverse model errors")
-        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'),
+        plt.title("Visualization of both inverse model errors with simulator error")
+        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'), aspect='auto',
                    extent=(min(min(test_g[:, 0]), min(test_g2[:, 0])), max(max(test_g[:, 0]), max(test_g2[:, 0])),
                            min(min(test_g[:, 1]), min(test_g2[:, 1])), max(max(test_g[:, 1]), max(test_g2[:, 1]))))
 
-        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.log(test_err), marker='o', cmap='plasma')
-        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.log(test_err2), marker='x', cmap='plasma')
+        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.sqrt(test_err), marker='o', cmap='plasma')
+        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.sqrt(test_err2), marker='x', cmap='plasma')
         plt.plot(test_g[:, 0], test_g[:, 1], label='Inverse Model 1')
         plt.plot(test_g2[:, 0], test_g2[:, 1], label='Inverse Model 2')
-        plt.colorbar(label='Error', orientation='horizontal')
-        plt.clim(-20, 0)
-        plt.legend(bbox_to_anchor=(1.1, 1.1))
+        plt.colorbar(label='Sqrt Error by Simulator', orientation='horizontal')
+        #plt.clim(-20, 0)
+        plt.clim(0, 1.4)
+        plt.legend()
+        #plt.legend(bbox_to_anchor=(1.1, 1.1))
         plt.savefig("{}/geometry_visualization_mse_{}".format(dir, num))
         print("Saved to {}/geometry_visualization_mse_{}".format(dir, num))
 
         plt.figure(13)
         plt.clf()
-        plt.title("Visualization of inverse model 1 output geometries")
-        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'),
+        plt.title("Visualization of inverse model 1 output geometries with forward error")
+        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'), aspect='auto',
                    extent=(min(min(test_g[:, 0]), min(test_g2[:, 0])), max(max(test_g[:, 0]), max(test_g2[:, 0])),
                            min(min(test_g[:, 1]), min(test_g2[:, 1])), max(max(test_g[:, 1]), max(test_g2[:, 1]))))
-        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.log(test_err_fwd), cmap='plasma')
+        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.sqrt(test_err_fwd), cmap='plasma')
         plt.plot(test_g[:, 0], test_g[:, 1])
-        plt.clim(-22, 0)
-        plt.colorbar(label='log error by Forward model', orientation='horizontal')
+        #plt.clim(-20, 0)
+        plt.clim(0, 1.4)
+        plt.colorbar(label='Sqrt error by Forward model', orientation='horizontal')
         plt.savefig("{}/geometry_visualization_model1_forward_mse_{}".format(dir, num))
 
         plt.figure(14)
         plt.clf()
-        plt.title("Visualization of inverse model 2 output geometries")
-        plt.imshow(mesh_out2, cmap=plt.cm.get_cmap('gray'),
+        plt.title("Visualization of inverse model 2 output geometries with forward error")
+        plt.imshow(mesh_out2, cmap=plt.cm.get_cmap('gray'), aspect='auto',
                    extent=(min(min(test_g[:, 0]), min(test_g2[:, 0])), max(max(test_g[:, 0]), max(test_g2[:, 0])),
                            min(min(test_g[:, 1]), min(test_g2[:, 1])), max(max(test_g[:, 1]), max(test_g2[:, 1]))))
-        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.log(test_err_fwd2), cmap='plasma')
+        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.sqrt(test_err_fwd2), cmap='plasma')
         plt.plot(test_g2[:, 0], test_g2[:, 1], label='Inverse Model 2')
-        plt.colorbar(label='log error by Forward model', orientation='horizontal')
-        plt.clim(-22, 0)
+        plt.colorbar(label='Sqrt error by Forward model', orientation='horizontal')
+        #plt.clim(-20, 0)
+        plt.clim(0, 1.4)
         plt.savefig("{}/geometry_visualization_model2_forward_mse_{}".format(dir, num))
 
         plt.figure(15)
         plt.clf()
-        plt.title("Visualization of both inverse model errors")
-        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'),
+        plt.title("Visualization of both inverse model errors with forward error")
+        plt.imshow(mesh_out1, cmap=plt.cm.get_cmap('gray'), aspect='auto',
                    extent=(min(min(test_g[:, 0]), min(test_g2[:, 0])), max(max(test_g[:, 0]), max(test_g2[:, 0])),
                            min(min(test_g[:, 1]), min(test_g2[:, 1])), max(max(test_g[:, 1]), max(test_g2[:, 1]))))
-        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.log(test_err_fwd), marker='o', cmap='plasma')
-        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.log(test_err_fwd2), marker='x', cmap='plasma')
+        plt.scatter(test_g[:, 0], test_g[:, 1], s=20, c=np.sqrt(test_err_fwd), marker='o', cmap='plasma')
+        plt.scatter(test_g2[:, 0], test_g2[:, 1], s=20, c=np.sqrt(test_err_fwd2), marker='x', cmap='plasma')
 
         plt.plot(test_g[:, 0], test_g[:, 1], label='Inverse Model 1')
         plt.plot(test_g2[:, 0], test_g2[:, 1], label='Inverse Model 2')
-        plt.clim(-20, 0)
-        plt.colorbar(label='Error by Forward model', orientation='horizontal')
-        plt.legend(bbox_to_anchor=(1.1, 1.1))
+        #plt.clim(-20, 0)
+        plt.clim(0, 1.4)
+        plt.colorbar(label='Sqrt Error by Forward model', orientation='horizontal')
+        #plt.legend(bbox_to_anchor=(1.1, 1.1))
+        plt.legend()
         plt.savefig("{}/geometry_visualization_forward_mse_{}".format(dir, num))
 if __name__ == '__main__':
     #sigmas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
