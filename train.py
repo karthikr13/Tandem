@@ -162,8 +162,8 @@ def train(dir, sigma, lam):
             backward_eval_losses.append(epoch_loss)
             print("Backwards train loss on epoch {}: {}".format(epoch, backward_train_losses[-1]))
             print("Backwards eval loss on epoch {}: {}".format(epoch, epoch_loss))
-            if eval_epoch_loss < best_err_1:
-                best_err_1 = eval_epoch_loss
+            if epoch_loss < best_err_1:
+                best_err_1 = epoch_loss
                 torch.save(model_b.state_dict(), "{}/model1.pt".format(dir))
 
     #Backward model 2
@@ -215,14 +215,14 @@ def train(dir, sigma, lam):
                 l2 = loss(s_out, s, x=g_out)
                 eval_epoch_losses.append(l.cpu().detach().numpy())
                 eval_epoch_losses_mse.append(l2.cpu().detach().numpy())
-            epoch_loss = np.mean(eval_epoch_losses)
+            eval_epoch_loss = np.mean(eval_epoch_losses)
             epoch_loss_mse = np.mean(eval_epoch_losses_mse)
             backward_eval_losses2.append(epoch_loss)
             backward_eval_losses2_mses.append(epoch_loss_mse)
             print("Backwards 2 train loss on epoch {}: {}".format(epoch, backward_train_losses2[-1]))
             print("Backwards 2 eval loss on epoch {}: {}".format(epoch, epoch_loss))
-            if eval_epoch_loss < best_err_2:
-                best_err_2 = eval_epoch_loss
+            if epoch_loss_mse < best_err_2:
+                best_err_2 = epoch_loss_mse
                 torch.save(model_b2.state_dict(), "{}/model2.pt".format(dir))
 
     #inference

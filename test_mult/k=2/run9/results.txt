@@ -1,0 +1,7 @@
+Number of epochs: 500
+Sigma: 0.2
+Sigma squared: 0.04000000000000001
+Lambda: 0.02
+Inference error for backwards model 1: 0.008360744453966618
+Inference error for backwards model 2: 0.004447211977094412
+Overall error: 0.003868990810588002

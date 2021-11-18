@@ -5,6 +5,38 @@ from matplotlib.colors import LogNorm
 import seaborn as sns
 import csv
 
+def mult_results(root):
+    runs = []
+    for i in range(1,11):
+        runs.append("run{}".format(i))
+    out = {}
+    for subdirs, _, files in os.walk(root):
+        spl = subdirs.split("/")
+        if len(spl) < 3:
+            continue
+        k = float(spl[1][-1])
+        if k not in out:
+            out[k] = []
+        results = open("{}/results.txt".format(subdirs))
+        lines = results.readlines()
+        err = float(lines[-1].split(": ")[1])
+        out[k].append(err)
+
+    means = []
+    plt.figure(1)
+    plt.clf()
+    plt.xticks(range(1, len(out.keys())+1))
+    plt.xlabel('k')
+    plt.ylabel('Inference error')
+    plt.title("Inference error across 10 sets of k models, $\lambda$=0.2, $\sigma^2$=0.04")
+
+    for k in range(1, len(out.keys()) + 1):
+        means.append(np.mean(out[k]))
+        plt.scatter([k]*len(out[k]), out[k])
+    plt.plot(sorted(out.keys()), means, label='mean error')
+    plt.legend()
+    plt.savefig("{}/mult_sum.png".format(root))
+
 def read_results(dirs, savedir):
     results_dict = {}
     s2 = set()
@@ -159,6 +191,69 @@ def collate_results(root):
     plt.ylabel('sigma')
     plt.savefig("{}/error_viz_mse.png".format(root))
     '''
+def run_4_test(root):
+    runs = []
+    for i in range(1,11):
+        runs.append("run{}".format(i))
+    model1, model2, model3, model4 = [],[],[],[]
+    for run in runs:
+        dir = os.path.join(root, "k=4", run)
+        results = open("{}/results.txt".format(dir))
+        lines = results.readlines()
+        model1.append(float(lines[4].split(": ")[1]))
+        model2.append(float(lines[5].split(": ")[1]))
+        model3.append(float(lines[6].split(": ")[1]))
+        model4.append(float(lines[7].split(": ")[1]))
+    means = []
+    means.append(np.mean(model1))
+    means.append(np.mean(model2))
+    means.append(np.mean(model3))
+    means.append(np.mean(model4))
+
+    plt.figure(1)
+    plt.clf()
+    plt.title("Error for each model for k=4")
+    plt.scatter([1]*10, model1)
+    plt.scatter([2] * 10, model2)
+    plt.scatter([3] * 10, model3)
+    plt.scatter([4] * 10, model4)
+    plt.plot([1, 2, 3, 4], means, label='means')
+    plt.xticks([1, 2, 3, 4])
+    plt.xlabel("Model #")
+    plt.ylabel("Inference error")
+    plt.legend()
+    plt.savefig("test_mult_viz/run4_q.png")
+
+def run_3_test(root):
+    runs = []
+    for i in range(1,11):
+        runs.append("run{}".format(i))
+    model1, model2, model3 = [],[],[]
+    for run in runs:
+        dir = os.path.join(root, "k=3", run)
+        results = open("{}/results.txt".format(dir))
+        lines = results.readlines()
+        model1.append(float(lines[4].split(": ")[1]))
+        model2.append(float(lines[5].split(": ")[1]))
+        model3.append(float(lines[6].split(": ")[1]))
+    means = []
+    means.append(np.mean(model1))
+    means.append(np.mean(model2))
+    means.append(np.mean(model3))
+
+    plt.figure(1)
+    plt.clf()
+    plt.title("Error for each model for k=3")
+    plt.scatter([1]*10, model1)
+    plt.scatter([2] * 10, model2)
+    plt.scatter([3] * 10, model3)
+    plt.plot([1, 2, 3], means, label='means')
+    plt.xticks([1, 2, 3])
+    plt.xlabel("Model #")
+    plt.ylabel("Inference error")
+    plt.legend()
+    plt.savefig("test_mult_viz/run3_q.png")
+
 if __name__ == '__main__':
     '''
     dirs = []
@@ -168,4 +263,8 @@ if __name__ == '__main__':
         collate_results(dir)
     '''
 
-    read_results('summary', 'summary')
+    #read_results('summary', 'summary')
+
+    #mult_results("test_mult")
+    run_3_test("test_mult")
+    run_4_test("test_mult")
