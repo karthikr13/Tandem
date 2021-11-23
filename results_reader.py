@@ -7,7 +7,7 @@ import csv
 
 def mult_results(root):
     runs = []
-    for i in range(1,11):
+    for i in range(1,4):
         runs.append("run{}".format(i))
     out = {}
     for subdirs, _, files in os.walk(root):
@@ -28,7 +28,7 @@ def mult_results(root):
     plt.xticks(range(1, len(out.keys())+1))
     plt.xlabel('k')
     plt.ylabel('Inference error')
-    plt.title("Inference error across 10 sets of k models, $\lambda$=0.2, $\sigma^2$=0.04")
+    plt.title("Inference error across 3 sets of k models, $\lambda$=0.2, $\sigma^2$=0.04")
 
     for k in range(1, len(out.keys()) + 1):
         means.append(np.mean(out[k]))
@@ -191,13 +191,14 @@ def collate_results(root):
     plt.ylabel('sigma')
     plt.savefig("{}/error_viz_mse.png".format(root))
     '''
-def run_4_test(root):
+def run_4_test():
+    root = "robot_test"
     runs = []
     for i in range(1,11):
         runs.append("run{}".format(i))
     model1, model2, model3, model4 = [],[],[],[]
     for run in runs:
-        dir = os.path.join(root, "k=4", run)
+        dir = os.path.join(root, run, "k=4")
         results = open("{}/results.txt".format(dir))
         lines = results.readlines()
         model1.append(float(lines[4].split(": ")[1]))
@@ -210,27 +211,28 @@ def run_4_test(root):
     means.append(np.mean(model3))
     means.append(np.mean(model4))
 
-    plt.figure(1)
+    plt.figure(2)
     plt.clf()
     plt.title("Error for each model for k=4")
-    plt.scatter([1]*10, model1)
-    plt.scatter([2] * 10, model2)
-    plt.scatter([3] * 10, model3)
-    plt.scatter([4] * 10, model4)
+    plt.scatter([1] * len(model1), model1)
+    plt.scatter([2] * len(model1), model2)
+    plt.scatter([3] * len(model1), model3)
+    plt.scatter([4] * len(model1), model4)
     plt.plot([1, 2, 3, 4], means, label='means')
     plt.xticks([1, 2, 3, 4])
     plt.xlabel("Model #")
     plt.ylabel("Inference error")
     plt.legend()
-    plt.savefig("test_mult_viz/run4_q.png")
+    plt.savefig("{}/summary/k4_model_errs.png".format(root))
 
-def run_3_test(root):
+def run_3_test():
+    root = "robot_test"
     runs = []
     for i in range(1,11):
         runs.append("run{}".format(i))
     model1, model2, model3 = [],[],[]
     for run in runs:
-        dir = os.path.join(root, "k=3", run)
+        dir = os.path.join(root, run, "k=3")
         results = open("{}/results.txt".format(dir))
         lines = results.readlines()
         model1.append(float(lines[4].split(": ")[1]))
@@ -244,15 +246,135 @@ def run_3_test(root):
     plt.figure(1)
     plt.clf()
     plt.title("Error for each model for k=3")
-    plt.scatter([1]*10, model1)
-    plt.scatter([2] * 10, model2)
-    plt.scatter([3] * 10, model3)
+    plt.scatter([1] * len(model1), model1)
+    plt.scatter([2] * len(model1), model2)
+    plt.scatter([3] * len(model1), model3)
     plt.plot([1, 2, 3], means, label='means')
     plt.xticks([1, 2, 3])
     plt.xlabel("Model #")
     plt.ylabel("Inference error")
     plt.legend()
-    plt.savefig("test_mult_viz/run3_q.png")
+    plt.savefig("{}/summary/k3_model_errs.png".format(root))
+
+def collate_robot():
+    root = "robot_test/summary"
+    files = ["{}/summary{}.csv".format(root, i) for i in range(1, 11)]
+    res_dict = {}
+    for k in [1, 2, 3, 4]:
+        res_dict[k] = []
+    for file in files:
+        reader = csv.reader(open(file))
+        next(reader)
+        for line in reader:
+            k = float(line[0])
+            ovr = float(line[1])
+            res_dict[k].append(ovr)
+    plt.figure(1)
+    plt.clf()
+    plt.title("Error by k on robotic arm dataset")
+    plt.xlabel("k")
+    plt.ylabel("error")
+    for k in res_dict:
+        plt.scatter([k]*len(res_dict[k]), res_dict[k])
+    means = [np.mean(res_dict[k]) for k in res_dict]
+    medians = [np.median(res_dict[k]) for k in res_dict]
+    plt.plot([1, 2, 3, 4], means, label = 'means')
+    plt.plot([1, 2, 3, 4], medians, label='medians')
+    plt.xticks([1, 2, 3, 4])
+    plt.legend()
+    plt.savefig("{}/k_errors.png".format(root))
+def robot_results():
+    dirs = ["robot_test/run{}".format(i) for i in range(1, 11)]
+    for i, dir in enumerate(dirs):
+        summary = open("{}/summary.csv".format(dir), "w")
+        header = ["k", "overall"]
+        header += ["model_{}".format(i + 1) for i in range(4)]
+        summary.write(",".join(header))
+        summary.write("\n")
+        for k in [1, 2, 3, 4]:
+            write_line = []
+            file = open("{}/k={}/results.txt".format(dir, k))
+            lines = file.readlines()
+            err_lines = lines[4:]
+            write_line.append(str(k))
+            write_line.append(err_lines[-1].split(": ")[-1][:-1])
+            for line in err_lines[:-1]:
+                write_line.append(line.split(": ")[-1][:-1])
+            file.close()
+            summary.write(",".join(write_line))
+            summary.write("\n")
+        summary.close()
+
+
+def test_mult_3_results():
+    dirs = ["run{}".format(i) for i in range(1, 8)]
+    for k in [1, 2, 3, 4]:
+        summary = open("test_mult3/k={}/summary.csv".format(k), "w")
+        header = ["run", "overall"]
+        header += ["model_{}".format(i+1) for i in range(k)]
+        summary.write(",".join(header))
+        summary.write("\n")
+        for i, dir in enumerate(dirs):
+            write_line = []
+            file = open("test_mult3/k={}/{}/results.txt".format(k, dir))
+            lines = file.readlines()
+            err_lines = lines[4:]
+            write_line.append(str(i+1))
+            write_line.append(err_lines[-1].split(": ")[-1][:-1])
+            for line in err_lines[:-1]:
+                write_line.append(line.split(": ")[-1][:-1])
+            file.close()
+            summary.write(",".join(write_line))
+            summary.write("\n")
+        summary.close()
+
+def collate_test_3():
+    dir = "7run_summary"
+    ksum = [open("{}/summary{}.csv".format(dir, i)) for i in range(1, 5)]
+    means = []
+    medians = []
+
+    plt.figure(100)
+    plt.clf()
+    plt.title("Mean error across 10 trials")
+    plt.xlabel("k")
+    plt.ylabel("err")
+    for k in range(1, 5):
+        plt.figure(k)
+        plt.title("Average error for each model with k={}".format(k))
+        plt.xlabel("sequential model #")
+        plt.ylabel("error")
+        mdls = []
+        for i in range(k):
+            mdls.append([])
+
+        ovrs = []
+        reader = csv.reader(ksum[k-1])
+        next(reader)
+        for line in reader:
+            ovrs.append(float(line[1]))
+            for i in range(k):
+                mdls[i].append(float(line[2+i]))
+        for i in range(k):
+            plt.scatter([i+1]*len(mdls[i]), mdls[i])
+        plt.xticks(range(1, k+1))
+        plt.ylim([0, 0.12])
+        plt.plot(range(1, k+1), [np.mean(n) for n in mdls], label = 'mean')
+        plt.legend()
+        plt.savefig("{}/model_err_k={}.png".format(dir,k))
+        means.append(np.mean(ovrs))
+        medians.append(np.median(ovrs))
+        plt.figure(100)
+        plt.scatter([k]*len(ovrs), ovrs)
+
+    for file in ksum:
+        file.close()
+    plt.figure(100)
+    plt.plot([1, 2, 3, 4], means, label='means')
+    plt.plot([1, 2, 3, 4], medians, label='medians')
+    plt.xticks([1, 2, 3, 4])
+    plt.legend()
+    plt.savefig('{}/mean_errors.png'.format(dir))
 
 if __name__ == '__main__':
     '''
@@ -265,6 +387,10 @@ if __name__ == '__main__':
 
     #read_results('summary', 'summary')
 
-    #mult_results("test_mult")
-    run_3_test("test_mult")
-    run_4_test("test_mult")
+    #mult_results("test_mult2")
+
+    collate_test_3()
+    #robot_results()
+    #collate_robot()
+    #run_3_test()
+    #run_4_test()

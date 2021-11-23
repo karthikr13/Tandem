@@ -255,19 +255,17 @@ def read_data_naval_propulsion(flags, eval_data_all=False):
                                  test_ratio=flags.test_ratio)
 
 
-def read_data_robotic_arm(flags, eval_data_all=False):
+def read_data_robotic_arm(eval_data_all=False):
     """
     Data reader function for the robotic arm data set
-    :param flags: Input flags
     :return: train_loader and test_loader in pytorch data set format (normalized)
     """
-    data_dir = os.path.join(flags.data_dir, 'Simulated_DataSets/Robotic_Arm/')
-    data_x = pd.read_csv(data_dir + 'data_x.csv', header=None).astype('float32').values
-    data_y = pd.read_csv(data_dir + 'data_y.csv', header=None).astype('float32').values
+    data_x = pd.read_csv('data_x_robot.csv', header=None).astype('float32').values
+    data_y = pd.read_csv('data_y_robot.csv', header=None).astype('float32').values
     if eval_data_all:
-        return get_data_into_loaders(data_x, data_y, flags.batch_size, SimulatedDataSet_regress, test_ratio=0.999)
-    return get_data_into_loaders(data_x, data_y, flags.batch_size, SimulatedDataSet_regress,
-                                 test_ratio=flags.test_ratio)
+        return get_data_into_loaders(data_x, data_y, 1024, SimulatedDataSet_regress, test_ratio=0.999)
+    return get_data_into_loaders(data_x, data_y, 1024, SimulatedDataSet_regress,
+                                 test_ratio=0.2)
 
 
 def read_data_ensemble_MM(flags, eval_data_all=False):

@@ -10,6 +10,7 @@ from torch.optim import lr_scheduler
 import seaborn as sns
 from matplotlib.colors import LogNorm
 import os
+from robotic_arm_data_gen import determine_final_position
 
 from tandem import Forward, Backward
 import data_reader
@@ -22,8 +23,13 @@ def boundary_loss(x):
     :param x: predicted input tensor
     :return: boundary loss
     """
-    mean = np.array([0, 0])
-    range = np.array([2, 2])
+    global sine
+    if sine:
+        mean = np.array([0, 0])
+        range = np.array([2, 2])
+    else:
+        range, lower, upper = np.array([1.88, 3.7, 3.82, 3.78]), np.array([-0.87, -1.87, -1.92, -1.73]), np.array([1.018, 1.834, 1.897, 2.053])
+        mean = (lower + upper) / 2
     if torch.cuda.is_available():
         input_diff = torch.abs(x - torch.tensor(mean, dtype=torch.float, device='cuda'))
         mean_diff = input_diff - 0.5*torch.tensor(range, dtype = torch.float, device='cuda')
@@ -37,19 +43,26 @@ def boundary_loss(x):
     return torch.mean(total_loss)
 
 def loss(ys, labels, x = None, prev = None, sigma = 1, l = 0):
+    global sine
     bdy = 0
     prev_loss = 0
     if x is not None:
         bdy = boundary_loss(x)
-    if prev is not None and len(prev) > 0:
-        for r in range(len(prev)):
-            prev_loss += torch.mean(l*(1-(torch.exp(-1 * torch.square(torch.subtract(prev[r], ys)) / (sigma ** 2)))))
+        if prev is not None and len(prev) > 0:
+            for r in range(len(prev)):
+                prev_loss += torch.mean(l*(1-(torch.exp(-1 * torch.square(torch.subtract(prev[r], x)) / (sigma ** 2)))))
     mse = nn.functional.mse_loss(ys, labels)
 
     return 100*bdy + mse - prev_loss
 
-def train_multiple(k, dir, lam, sigma):
-    train_data, test_data = data_reader.read_data_sine_wave()
+def train_multiple(k, dir, lam, sigma, in_size, out_size, sin=True):
+    global sine
+    sine = sin
+    if sin:
+        train_data, test_data = data_reader.read_data_sine_wave()
+    else:
+        train_data, test_data = data_reader.read_data_robotic_arm()
+
     cuda = True if torch.cuda.is_available() else False
 
     num_epochs = 500
@@ -66,7 +79,7 @@ def train_multiple(k, dir, lam, sigma):
 
     # train forward model
     print("training forward model")
-    model_f = Forward()
+    model_f = Forward(in_size, out_size)
     if cuda:
         model_f.cuda()
     opt_f = torch.optim.Adam(model_f.parameters(), lr=0.001, weight_decay=0.0005)
@@ -124,7 +137,7 @@ def train_multiple(k, dir, lam, sigma):
     inference_errs = []
     for idx in range(k):
         print("setting up backwards model {}".format(idx+1))
-        model = Backward()
+        model = Backward(in_size, out_size)
         if cuda:
             model.cuda()
         opt = torch.optim.Adam(model.parameters(), lr=0.001)
@@ -158,7 +171,7 @@ def train_multiple(k, dir, lam, sigma):
                 s_out = model_f(g_out)
                 prev = []
                 for p_idx in range(0, idx):
-                    prev.append(model_b[idx](s))
+                    prev.append(model_b[p_idx](s))
                 l = loss(s_out, s, x=g_out, prev=prev, sigma=sigma, l=lam)
                 l2 = loss(s_out, s, x=g_out)
                 l.backward()
@@ -185,7 +198,7 @@ def train_multiple(k, dir, lam, sigma):
                     s_out = model_f(g_out)
                     prev = []
                     for p_idx in range(0, idx):
-                        prev.append(model_b[idx](s))
+                        prev.append(model_b[p_idx](s))
                     l = loss(s_out, s, x=g_out, prev=prev, sigma=sigma, l=lam)
                     l2 = loss(s_out, s, x=g_out)
                     eval_epoch_losses.append(l.cpu().detach().numpy())
@@ -210,10 +223,14 @@ def train_multiple(k, dir, lam, sigma):
             g_out = model_b[idx](s)
             g_out_np = g_out.cpu().detach().numpy()
 
-            s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
-            s_out = np.sin(3 * np.pi * g_out_np[:, 0]) + np.cos(3 * np.pi * g_out_np[:, 1])
+            if sin:
+                s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
+                s_out = np.sin(3 * np.pi * g_out_np[:, 0]) + np.cos(3 * np.pi * g_out_np[:, 1])
+            else:
+                s_out, positions = determine_final_position(g_out_np[:, 0], g_out_np[:, 1:], evaluate_mode=True)
             s_out = torch.tensor(s_out, dtype=torch.float)
-            s_out = torch.unsqueeze(s_out, 1)
+            if sin:
+                s_out = torch.unsqueeze(s_out, 1)
             if torch.cuda.is_available():
                 s_out = s_out.cuda()
             inf_err.append(loss(s_out, s).cpu().detach().numpy())
@@ -233,36 +250,43 @@ def train_multiple(k, dir, lam, sigma):
             g_out_np = g_out.cpu().detach().numpy()
             gs.append(g_out_np)
         for g_out in gs:
-            s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
-            s_out = np.sin(3 * np.pi * g_out[:, 0]) + np.cos(3 * np.pi * g_out[:, 1])
+            if sin:
+                s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
+                s_out = np.sin(3 * np.pi * g_out[:, 0]) + np.cos(3 * np.pi * g_out[:, 1])
+            else:
+                s_out, positions = determine_final_position(g_out[:, 0], g_out[:, 1:], evaluate_mode=True)
             s_out = torch.tensor(s_out, dtype=torch.float)
-            s_out = torch.unsqueeze(s_out, 1)
+            if sin:
+                s_out = torch.unsqueeze(s_out, 1)
             if torch.cuda.is_available():
                 s_out = s_out.cuda()
             inf_err = loss(s_out, s).cpu().detach().numpy()
             inf_errs.append(inf_err)
+            print(inf_err)
 
         best = np.argmin(inf_errs)
+        print(best, inf_errs)
         overall_inf_err.append(inf_errs[best])
     final_err = np.mean(overall_inf_err)
     print("Overall error: {}".format(final_err))
     results.write("Overall error: {}\n".format(final_err))
     results.close()
 
-    # geometry visualization
-    plt.figure(1)
-    plt.clf()
-    plt.title("Geometry visualization")
-    test_s = np.linspace(-1, 1, 100)
-    s_in = torch.tensor(test_s, dtype=torch.float).unsqueeze(1)
-    if torch.cuda.is_available():
-        s_in = s_in.cuda()
-    for n in range(k):
-        g = model_b[n](s_in)
-        test_g = g.cpu().detach().numpy()
-        plt.scatter(test_g[:, 0], test_g[:, 1], s=10, label='Inverse Model {}'.format(n+1))
-    plt.legend()
-    plt.savefig("{}/geometry_visualization.png".format(dir))
+    if sin:
+        # geometry visualization
+        plt.figure(1)
+        plt.clf()
+        plt.title("Geometry visualization")
+        test_s = np.linspace(-1, 1, 100)
+        s_in = torch.tensor(test_s, dtype=torch.float).unsqueeze(1)
+        if torch.cuda.is_available():
+            s_in = s_in.cuda()
+        for n in range(k):
+            g = model_b[n](s_in)
+            test_g = g.cpu().detach().numpy()
+            plt.scatter(test_g[:, 0], test_g[:, 1], s=10, label='Inverse Model {}'.format(n+1))
+        plt.legend()
+        plt.savefig("{}/geometry_visualization.png".format(dir))
 
 def inference(model_f, model_b, dir):
     train_data, test_data = data_reader.read_data_sine_wave()
@@ -350,24 +374,49 @@ def inference(model_f, model_b, dir):
 
 if __name__ == '__main__':
     '''
-    os.makedirs("test_mult", exist_ok=True)
+    os.makedirs("test_mult3", exist_ok=True)
     ks = [1, 2, 3, 4]
-    for k in ks:
-        root = "test_mult/k={}".format(k)
-        os.makedirs(root, exist_ok=True)
-        for i in range(5):
-            dir = "{}/run{}".format(root, i+1)
+    for i in range(1, 8):
+        for k in ks:
+            root = "test_mult3/k={}".format(k)
+            os.makedirs(root, exist_ok=True)
+            #for i in range(3):
+            dir = "{}/run{}".format(root, i)
             os.makedirs(dir, exist_ok=True)
-            train_multiple(k, dir, 0.02, 0.2)
+            train_multiple(k, dir, 0.02, 0.2, 2, 1)
     '''
-    #train_multiple(2, "test_mult", 0.02, 0.2)
-    os.makedirs("test_mult_viz", exist_ok=True)
-    dir = "test_mult/k=4/run8"
+    os.makedirs('robot_test', exist_ok=True)
+    '''
+    os.makedirs('robot_test/k=2', exist_ok=True)
+    train_multiple(2, "robot_test/k=2", 0, 0.2, 4, 2, sin=False)
+    '''
+    dirs = ["robot_test/run{}".format(i+1) for i in range(5, 10)]
+    for dir in dirs:
+        for i in range(1,5):
+            d = "{}/k={}".format(dir, i)
+            os.makedirs(d, exist_ok=True)
+            train_multiple(i, d, 0, 0.2, 4, 2, sin=False)
+            
+    '''
+    os.makedirs("test_mult_viz2", exist_ok=True)
+    #train_multiple(2, "test_mult2", 0.02, 0.2)
+    dir = "test_mult2/k=4/run3"
     model_f = Forward()
     model_f.load_state_dict(torch.load("{}/modelf.pt".format(dir), map_location=torch.device('cpu')))
-    model_b = []
-    for i in range(4):
-        model = Backward()
-        model.load_state_dict(torch.load("{}/model_b{}.pt".format(dir, i), map_location=torch.device('cpu')))
-        model_b.append(model)
-    inference(model_f, model_b, "test_mult_viz")
+
+    model = Backward()
+    model.load_state_dict(torch.load("{}/model_b0.pt".format(dir), map_location=torch.device('cpu')))
+
+    model_b2 = Backward()
+    model_b2.load_state_dict(torch.load("{}/model_b1.pt".format(dir), map_location=torch.device('cpu')))
+
+    model_b3 = Backward()
+    model_b3.load_state_dict(torch.load("{}/model_b2.pt".format(dir), map_location=torch.device('cpu')))
+
+    model_b4 = Backward()
+    model_b4.load_state_dict(torch.load("{}/model_b3.pt".format(dir), map_location=torch.device('cpu')))
+
+    model_b = [model, model_b2, model_b3, model_b4]
+
+    inference(model_f, model_b, "test_mult_viz2")
+    '''
