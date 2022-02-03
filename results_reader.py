@@ -271,7 +271,7 @@ def collate_robot():
             res_dict[k].append(ovr)
     plt.figure(1)
     plt.clf()
-    plt.title("Error by k on robotic arm dataset")
+    plt.title("Error across 10 trials on robotic arm dataset")
     plt.xlabel("k")
     plt.ylabel("error")
     for k in res_dict:
@@ -283,6 +283,7 @@ def collate_robot():
     plt.xticks([1, 2, 3, 4])
     plt.legend()
     plt.savefig("{}/k_errors.png".format(root))
+    return means
 def robot_results():
     dirs = ["robot_test/run{}".format(i) for i in range(1, 11)]
     for i, dir in enumerate(dirs):
@@ -307,16 +308,16 @@ def robot_results():
 
 
 def test_mult_3_results():
-    dirs = ["run{}".format(i) for i in range(1, 8)]
+    dirs = ["run{}".format(i) for i in range(1, 11)]
     for k in [1, 2, 3, 4]:
-        summary = open("test_mult3/k={}/summary.csv".format(k), "w")
+        summary = open("test_poster/k={}/summary.csv".format(k), "w")
         header = ["run", "overall"]
         header += ["model_{}".format(i+1) for i in range(k)]
         summary.write(",".join(header))
         summary.write("\n")
         for i, dir in enumerate(dirs):
             write_line = []
-            file = open("test_mult3/k={}/{}/results.txt".format(k, dir))
+            file = open("test_poster/k={}/{}/results.txt".format(k, dir))
             lines = file.readlines()
             err_lines = lines[4:]
             write_line.append(str(i+1))
@@ -328,15 +329,15 @@ def test_mult_3_results():
             summary.write("\n")
         summary.close()
 
-def collate_test_3():
-    dir = "7run_summary"
+def collate_test_3(dir):
+    #dir = "summary_anneal"
     ksum = [open("{}/summary{}.csv".format(dir, i)) for i in range(1, 5)]
     means = []
     medians = []
 
     plt.figure(100)
     plt.clf()
-    plt.title("Mean error across 10 trials")
+    plt.title("Error on robotic arm dataset with annealing with starting $\lambda = 0.1$")
     plt.xlabel("k")
     plt.ylabel("err")
     for k in range(1, 5):
@@ -358,8 +359,9 @@ def collate_test_3():
         for i in range(k):
             plt.scatter([i+1]*len(mdls[i]), mdls[i])
         plt.xticks(range(1, k+1))
-        plt.ylim([0, 0.12])
+        plt.ylim([0, .013])
         plt.plot(range(1, k+1), [np.mean(n) for n in mdls], label = 'mean')
+        plt.plot(range(1, k + 1), [np.median(n) for n in mdls], label='median')
         plt.legend()
         plt.savefig("{}/model_err_k={}.png".format(dir,k))
         means.append(np.mean(ovrs))
@@ -375,6 +377,7 @@ def collate_test_3():
     plt.xticks([1, 2, 3, 4])
     plt.legend()
     plt.savefig('{}/mean_errors.png'.format(dir))
+    return means
 
 if __name__ == '__main__':
     '''
@@ -388,9 +391,21 @@ if __name__ == '__main__':
     #read_results('summary', 'summary')
 
     #mult_results("test_mult2")
-
-    collate_test_3()
+    #test_mult_3_results()
+    anneal = collate_test_3("summary_anneal")
+    rep = collate_test_3("summary_r50")
+    os.makedirs("overall_summary", exist_ok=True)
     #robot_results()
-    #collate_robot()
+    reg = collate_test_3("summary_rob")
+    plt.figure(1)
+    plt.clf()
+    plt.plot([1, 2, 3, 4], reg, label="no repulsion")
+    plt.plot([1, 2, 3, 4], rep, label="$\lambda=0.02, \sigma^2=0.04$")
+    plt.plot([1, 2, 3, 4], anneal, label="anneal")
+    plt.xlabel("k")
+    plt.xticks([1, 2, 3, 4])
+    plt.ylabel("error")
+    plt.legend()
+    plt.savefig("overall_summary/plot.png")
     #run_3_test()
     #run_4_test()

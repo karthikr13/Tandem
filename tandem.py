@@ -4,9 +4,9 @@ Definition of tandem model
 import torch.nn as nn
 
 class Forward(nn.Module):
-    def __init__(self, inp, out):
+    def __init__(self, layer_sizes):
         super(Forward, self).__init__()
-        layer_sizes = [inp, 500, 500, 500, 500, out]
+        #layer_sizes = [inp, 500, 500, 500, 500, out]
         self.linears, self.bn = nn.ModuleList([]), nn.ModuleList([])
         for i in range(len(layer_sizes) - 1):
             in_size = layer_sizes[i]
@@ -26,9 +26,9 @@ class Forward(nn.Module):
         return out
 
 class Backward(nn.Module):
-    def __init__(self ,inp, out):
+    def __init__(self, layer_sizes):
         super(Backward, self).__init__()
-        layer_sizes = [out, 500, 500, 500, 500, inp]
+        #layer_sizes = [out, 500, 500, 500, 500, inp]
         self.linears, self.bn = nn.ModuleList([]), nn.ModuleList([])
         for i in range(len(layer_sizes) - 1):
             in_size = layer_sizes[i]

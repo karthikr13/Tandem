@@ -42,7 +42,7 @@ def boundary_loss(x):
         total_loss = total_loss.cuda()
     return torch.mean(total_loss)
 
-def loss(ys, labels, x = None, prev = None, sigma = 1, l = 0):
+def loss(ys, labels, x = None, prev = None, sigma = 1, l = 0, epoch = 0):
     global sine
     bdy = 0
     prev_loss = 0
@@ -50,12 +50,12 @@ def loss(ys, labels, x = None, prev = None, sigma = 1, l = 0):
         bdy = boundary_loss(x)
         if prev is not None and len(prev) > 0:
             for r in range(len(prev)):
-                prev_loss += torch.mean(l*(1-(torch.exp(-1 * torch.square(torch.subtract(prev[r], x)) / (sigma ** 2)))))
+                prev_loss += torch.mean((500-epoch)/500*l*(1-(torch.exp(-1 * torch.square(torch.subtract(prev[r], x)) / (sigma ** 2)))))
     mse = nn.functional.mse_loss(ys, labels)
 
     return 100*bdy + mse - prev_loss
 
-def train_multiple(k, dir, lam, sigma, in_size, out_size, sin=True):
+def train_multiple(k, dir, lam, sigma, sin=True):
     global sine
     sine = sin
     if sin:
@@ -79,7 +79,17 @@ def train_multiple(k, dir, lam, sigma, in_size, out_size, sin=True):
 
     # train forward model
     print("training forward model")
-    model_f = Forward(in_size, out_size)
+
+    if sin:
+        layer_sizes_f = [2, 500, 500, 500, 500, 1]
+        layer_sizes_b = layer_sizes_f[::-1]
+    else:
+        layer_sizes_f = [4, 300, 300, 2]
+        layer_sizes_b = [2, 500, 500, 500, 4]
+
+
+
+    model_f = Forward(layer_sizes_f)
     if cuda:
         model_f.cuda()
     opt_f = torch.optim.Adam(model_f.parameters(), lr=0.001, weight_decay=0.0005)
@@ -137,7 +147,7 @@ def train_multiple(k, dir, lam, sigma, in_size, out_size, sin=True):
     inference_errs = []
     for idx in range(k):
         print("setting up backwards model {}".format(idx+1))
-        model = Backward(in_size, out_size)
+        model = Backward(layer_sizes_b)
         if cuda:
             model.cuda()
         opt = torch.optim.Adam(model.parameters(), lr=0.001)
@@ -172,7 +182,7 @@ def train_multiple(k, dir, lam, sigma, in_size, out_size, sin=True):
                 prev = []
                 for p_idx in range(0, idx):
                     prev.append(model_b[p_idx](s))
-                l = loss(s_out, s, x=g_out, prev=prev, sigma=sigma, l=lam)
+                l = loss(s_out, s, x=g_out, prev=prev, sigma=sigma, l=lam, epoch=epoch)
                 l2 = loss(s_out, s, x=g_out)
                 l.backward()
                 opts[idx].step()
@@ -199,7 +209,7 @@ def train_multiple(k, dir, lam, sigma, in_size, out_size, sin=True):
                     prev = []
                     for p_idx in range(0, idx):
                         prev.append(model_b[p_idx](s))
-                    l = loss(s_out, s, x=g_out, prev=prev, sigma=sigma, l=lam)
+                    l = loss(s_out, s, x=g_out, prev=prev, sigma=sigma, l=lam, epoch=epoch)
                     l2 = loss(s_out, s, x=g_out)
                     eval_epoch_losses.append(l.cpu().detach().numpy())
                     eval_epoch_losses_mse.append(l2.cpu().detach().numpy())
@@ -243,30 +253,48 @@ def train_multiple(k, dir, lam, sigma, in_size, out_size, sin=True):
         if torch.cuda.is_available():
             g = g.cuda()
             s = s.cuda()
-
+        #f_errs = []
         gs, inf_errs = [], []
         for n in range(k):
             g_out = model_b[n](s)
             g_out_np = g_out.cpu().detach().numpy()
             gs.append(g_out_np)
+            #f_out = model_f(g_out)
+            #f_errs.append(loss(f_out, s))
+        '''
+        prediction = gs[np.argmin(f_errs)]
+        if sin:
+            s_out = np.zeros(np.array([np.shape(prediction)[0], 1]))
+            s_out = np.sin(3 * np.pi * prediction[:, 0]) + np.cos(3 * np.pi * prediction[:, 1])
+        else:
+            s_out, positions = determine_final_position(prediction[:, 0], prediction[:, 1:], evaluate_mode=True)
+        s_out = torch.tensor(s_out, dtype=torch.float)
+        if cuda:
+            s_out = s_out.cuda()
+        pred_loss = loss(s_out, s).cpu().detach().numpy()
+        overall_inf_err.append(pred_loss)
+        '''
         for g_out in gs:
+            
             if sin:
                 s_out = np.zeros(np.array([np.shape(g_out)[0], 1]))
                 s_out = np.sin(3 * np.pi * g_out[:, 0]) + np.cos(3 * np.pi * g_out[:, 1])
             else:
                 s_out, positions = determine_final_position(g_out[:, 0], g_out[:, 1:], evaluate_mode=True)
             s_out = torch.tensor(s_out, dtype=torch.float)
+            
             if sin:
                 s_out = torch.unsqueeze(s_out, 1)
             if torch.cuda.is_available():
                 s_out = s_out.cuda()
             inf_err = loss(s_out, s).cpu().detach().numpy()
             inf_errs.append(inf_err)
-            print(inf_err)
 
+        
         best = np.argmin(inf_errs)
-        print(best, inf_errs)
         overall_inf_err.append(inf_errs[best])
+
+
     final_err = np.mean(overall_inf_err)
     print("Overall error: {}".format(final_err))
     results.write("Overall error: {}\n".format(final_err))
@@ -297,9 +325,12 @@ def inference(model_f, model_b, dir):
 
     plt.figure(1)
     plt.clf()
-    plt.title("Geometry visualization")
-
-
+    plt.title("Geometry visualization with k=4 and repulsion term")
+    #plt.title("Geometry visualization with k=1")
+    plt.xlim([-1, 1])
+    plt.ylim([-1, 1])
+    plt.xlabel('x1')
+    plt.ylabel('x2')
     plt.figure(2)
     plt.clf()
     #plt.xlim([-1, 1])
@@ -373,6 +404,41 @@ def inference(model_f, model_b, dir):
 
 
 if __name__ == '__main__':
+    os.makedirs("test_anneal")
+    ks = [1, 2, 3, 4]
+    for i in range(1, 6):
+        for k in ks:
+            root = "test_anneal/k={}".format(k)
+            os.makedirs(root, exist_ok=True)
+            dir = "{}/run{}".format(root, i)
+            os.makedirs(dir, exist_ok=True)
+            train_multiple(k, dir, 0.1, 0.2, sin=False)
+    '''os.makedirs("test_poster", exist_ok=True)
+    ks = [1, 2, 3, 4]
+    for i in range(6):
+        for k in ks:
+            root = "test_poster/k={}".format(k)
+            os.makedirs(root, exist_ok=True)
+            dir = "{}/run{}".format(root, i)
+            os.makedirs(dir, exist_ok=True)
+            train_multiple(k, dir, 0.02, 0.2, sin=True)
+    #train_multiple(4, "quick_test", 0, 0.2, sin=True)
+    '''
+    '''
+    os.makedirs("test_fwd", exist_ok=True)
+    os.makedirs("test_fwd/sine", exist_ok=True)
+    os.makedirs("test_fwd/robot", exist_ok=True)
+    ks = [1, 2, 3, 4]
+
+    for i in range(6, 11):
+        for k in ks:
+            root = "test_fwd/robot/k={}".format(k)
+            os.makedirs(root, exist_ok=True)
+            # for i in range(3):
+            dir = "{}/run{}".format(root, i)
+            os.makedirs(dir, exist_ok=True)
+            train_multiple(k, dir, 0, 0.2, sin=True)
+    '''
     '''
     os.makedirs("test_mult3", exist_ok=True)
     ks = [1, 2, 3, 4]
@@ -385,35 +451,44 @@ if __name__ == '__main__':
             os.makedirs(dir, exist_ok=True)
             train_multiple(k, dir, 0.02, 0.2, 2, 1)
     '''
-    os.makedirs('robot_test', exist_ok=True)
+
     '''
     os.makedirs('robot_test/k=2', exist_ok=True)
     train_multiple(2, "robot_test/k=2", 0, 0.2, 4, 2, sin=False)
     '''
-    dirs = ["robot_test/run{}".format(i+1) for i in range(5, 10)]
+    '''
+    dirs = ["robot_test_2/run{}".format(i+1) for i in range(5)]
     for dir in dirs:
+        os.makedirs(dir, exist_ok=True)
+        train_multiple(2, dir, 0, 0.2, sin=False)
+        '''
+    '''
         for i in range(1,5):
             d = "{}/k={}".format(dir, i)
             os.makedirs(d, exist_ok=True)
-            train_multiple(i, d, 0, 0.2, 4, 2, sin=False)
-            
+            train_multiple(i, d, 0, 0.2, sin=False)
+        '''
     '''
     os.makedirs("test_mult_viz2", exist_ok=True)
     #train_multiple(2, "test_mult2", 0.02, 0.2)
+    '''
+    '''
     dir = "test_mult2/k=4/run3"
-    model_f = Forward()
+    layer_sizes_f = [2, 500, 500, 500, 500, 1]
+    layer_sizes_b = layer_sizes_f[::-1]
+    model_f = Forward(layer_sizes_f)
     model_f.load_state_dict(torch.load("{}/modelf.pt".format(dir), map_location=torch.device('cpu')))
 
-    model = Backward()
+    model = Backward(layer_sizes_b)
     model.load_state_dict(torch.load("{}/model_b0.pt".format(dir), map_location=torch.device('cpu')))
 
-    model_b2 = Backward()
+    model_b2 = Backward(layer_sizes_b)
     model_b2.load_state_dict(torch.load("{}/model_b1.pt".format(dir), map_location=torch.device('cpu')))
 
-    model_b3 = Backward()
+    model_b3 = Backward(layer_sizes_b)
     model_b3.load_state_dict(torch.load("{}/model_b2.pt".format(dir), map_location=torch.device('cpu')))
 
-    model_b4 = Backward()
+    model_b4 = Backward(layer_sizes_b)
     model_b4.load_state_dict(torch.load("{}/model_b3.pt".format(dir), map_location=torch.device('cpu')))
 
     model_b = [model, model_b2, model_b3, model_b4]
